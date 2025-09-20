@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狐拾一资料库搜索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* 自定义样式 */
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+        
+        .search-input:focus {
+            border-color: #4F46E5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="text-center mb-10">
+            <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-primary mb-2">狐拾一资料库搜索</h1>
+            <p class="text-gray-600">搜索人物和地点相关信息</p>
+        </header>
+        
+        <!-- 资料库状态区域 -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">资料库状态</h2>
+            <div id="database-status" class="text-center p-6">
+                <i class="fa fa-circle-o-notch fa-spin fa-4x text-gray-400 mb-3"></i>
+                <p id="status-message" class="text-gray-600">正在加载资料库...</p>
+            </div>
+            <div id="file-error" class="text-red-500 text-sm hidden text-center py-3"></div>
+        </div>
+        
+        <!-- 搜索区域 (初始隐藏) -->
+        <div id="search-area" class="bg-white rounded-xl shadow-md p-6 mb-8 hidden">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 relative">
+                    <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="输入关键词搜索..." 
+                        class="search-input pl-10"
+                    >
+                </div>
+                
+                <div class="w-full md:w-48">
+                    <select id="search-type" class="search-input">
+                        <option value="all">全部</option>
+                        <option value="person">人物</option>
+                        <option value="place">地点</option>
+                    </select>
+                </div>
+                
+                <div class="w-full md:w-auto">
+                    <button id="search-btn" class="w-full md:w-24 bg-primary hover:bg-primary/90 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2">
+                        <i class="fa fa-search"></i>
+                        <span>搜索</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 结果统计 -->
+        <div id="result-stats" class="mb-4 text-gray-600 hidden">
+            找到 <span id="result-count" class="font-semibold text-primary">0</span> 条结果
+        </div>
+        
+        <!-- 结果展示区域 -->
+        <div id="results-container" class="grid grid-cols-1 gap-6">
+            <div id="initial-message" class="text-center py-16 text-gray-500">
+                <i class="fa fa-file-text-o fa-4x mb-4 opacity-30"></i>
+                <p>等待资料库加载完成...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量存储加载的数据
+        let database = null;
+        
+        // DOM元素
+        const databaseStatus = document.getElementById('database-status');
+        const statusMessage = document.getElementById('status-message');
+        const fileError = document.getElementById('file-error');
+        const searchArea = document.getElementById('search-area');
+        const searchInput = document.getElementById('search-input');
+        const searchType = document.getElementById('search-type');
+        const searchBtn = document.getElementById('search-btn');
+        const resultsContainer = document.getElementById('results-container');
+        const resultStats = document.getElementById('result-stats');
+        const resultCount = document.getElementById('result-count');
+        
+        // 页面加载完成后自动加载资料库
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDatabase();
+        });
+        
+        // 加载资料库
+        function loadDatabase() {
+            fetch('资料库.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('未找到资料库文件，请确认文件存在');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 验证JSON结构
+                    if (!data.person || !data.place) {
+                        throw new Error('资料库格式不正确，缺少必要字段');
+                    }
+                    
+                    database = data;
+                    
+                    // 更新状态显示
+                    databaseStatus.innerHTML = `
+                        <i class="fa fa-check-circle fa-4x text-green-500 mb-3"></i>
+                        <p class="text-gray-600">资料库加载成功</p>
+                    `;
+                    fileError.classList.add('hidden');
+                    
+                    // 显示搜索区域
+                    searchArea.classList.remove('hidden');
+                    
+                    // 显示初始搜索提示
+                    showInitialSearchMessage();
+                })
+                .catch(error => {
+                    // 显示错误信息
+                    statusMessage.textContent = '';
+                    fileError.textContent = '加载失败: ' + error.message;
+                    fileError.classList.remove('hidden');
+                    databaseStatus.innerHTML = `
+                        <i class="fa fa-exclamation-circle fa-4x text-red-500 mb-3"></i>
+                    `;
+                });
+        }
+        
+        // 辅助函数
+        function showInitialSearchMessage() {
+            resultsContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fa fa-search fa-4x mb-4 opacity-30"></i>
+                    <p>请输入关键词进行搜索</p>
+                </div>
+            `;
+            resultStats.classList.add('hidden');
+        }
+        
+        // 搜索功能
+        function search() {
+            if (!database) return;
+            
+            const keyword = searchInput.value.trim().toLowerCase();
+            const type = searchType.value;
+            
+            if (!keyword) {
+                showInitialSearchMessage();
+                return;
+            }
+            
+            let results = [];
+            
+            // 搜索人物
+            if (type === 'all' || type === 'person') {
+                Object.values(database.person).forEach(person => {
+                    if (person.name.toLowerCase().includes(keyword) || 
+                        (person.introduce && person.introduce.toLowerCase().includes(keyword))) {
+                        results.push({
+                            type: 'person',
+                            data: person
+                        });
+                    }
+                });
+            }
+            
+            // 搜索地点
+            if (type === 'all' || type === 'place') {
+                Object.values(database.place).forEach(place => {
+                    if (place.name.toLowerCase().includes(keyword) || 
+                        (place.introduce && place.introduce.toLowerCase().includes(keyword))) {
+                        results.push({
+                            type: 'place',
+                            data: place
+                        });
+                    }
+                });
+            }
+            
+            displayResults(results);
+        }
+        
+        // 显示搜索结果
+        function displayResults(results) {
+            resultsContainer.innerHTML = '';
+            
+            // 显示结果统计
+            resultStats.classList.remove('hidden');
+            resultCount.textContent = results.length;
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-16 text-gray-500">
+                        <i class="fa fa-exclamation-circle fa-4x mb-4 opacity-30"></i>
+                        <p>未找到相关信息</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 生成结果卡片
+            results.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow p-6 card-hover border border-gray-100';
+                
+                if (item.type === 'person') {
+                    const person = item.data;
+                    let sentenceHtml = '';
+                    
+                    if (person.sentence) {
+                        sentenceHtml = `
+                            <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <p class="text-sm text-gray-500 mb-1">
+                                    <i class="fa fa-quote-left mr-1"></i>
+                                    台词（${person.sentence.tone || '未知语气'}）
+                                </p>
+                                <p class="italic text-gray-700 mb-2">${person.sentence.content}</p>
+                                <p class="text-xs text-gray-400">来源：${person.sentence.source || '未知'}</p>
+                            </div>
+                        `;
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="bg-primary/10 p-3 rounded-lg text-primary">
+                                <i class="fa fa-user fa-lg"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold mb-2">${person.name}</h3>
+                                <p class="text-gray-600 mb-3">${person.introduce || '无介绍信息'}</p>
+                                ${sentenceHtml}
+                            </div>
+                        </div>
+                    `;
+                } else if (item.type === 'place') {
+                    const place = item.data;
+                    card.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="bg-secondary/10 p-3 rounded-lg text-secondary">
+                                <i class="fa fa-map-marker fa-lg"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold mb-2">${place.name}</h3>
+                                <p class="text-gray-600">${place.introduce || '无介绍信息'}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                resultsContainer.appendChild(card);
+            });
+        }
+        
+        // 事件监听
+        searchBtn.addEventListener('click', search);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                search();
+            }
+        });
+    </script>
+</body>
+</html>
